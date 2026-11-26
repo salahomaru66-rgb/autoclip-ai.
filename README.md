@@ -1,2 +1,243 @@
 # autoclip-ai.
 AI-powered video editor that automatically finds highlights, creates gaming clips, adds subtitles, and formats videos for YouTube Shorts, TikTok, and Instagram Reels.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoClip AI</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #0b1020;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+header {
+  padding: 22px;
+  background: #121a30;
+  text-align: center;
+  border-bottom: 1px solid #263452;
+}
+header h1 {
+  color: #55aaff;
+  margin: 0;
+}
+header p {
+  color: #9baac4;
+}
+.container {
+  max-width: 650px;
+  margin: 25px auto;
+  padding: 18px;
+}
+.card {
+  background: #151f35;
+  padding: 20px;
+  border-radius: 15px;
+  margin-bottom: 18px;
+}
+h2 {
+  font-size: 19px;
+}
+input, button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 12px;
+  border-radius: 9px;
+}
+input {
+  background: #0b1020;
+  color: white;
+  border: 1px solid #344664;
+}
+button {
+  background: #2586ff;
+  color: white;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: .5;
+}
+video {
+  width: 100%;
+  margin-top: 15px;
+  border-radius: 12px;
+  background: black;
+}
+.status {
+  color: #65d9a0;
+  margin-top: 15px;
+  font-size: 14px;
+}
+label {
+  display: block;
+  margin-top: 15px;
+  color: #bdc9df;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>⚡ AUTOCLIP AI</h1>
+<p>AI Gaming Video Clipper</p>
+</header>
+
+<div class="container">
+
+<div class="card">
+<h2>📁 Upload Video</h2>
+<input type="file" id="upload" accept="video/*">
+<video id="video" controls></video>
+</div>
+
+<div class="card">
+<h2>✂️ Create Your Clip</h2>
+
+<label>Start time (seconds)</label>
+<input type="number" id="start" value="0" min="0">
+
+<label>End time (seconds)</label>
+<input type="number" id="end" value="30" min="1">
+
+<button id="create">Create Clip</button>
+
+<p class="status" id="status">
+Upload a video to get started.
+</p>
+</div>
+
+<div class="card">
+<h2>⬇️ Your Clip</h2>
+<a id="download" style="display:none;color:#65d9a0">
+Download your video
+</a>
+</div>
+
+</div>
+
+<script>
+const upload = document.getElementById("upload");
+const video = document.getElementById("video");
+const start = document.getElementById("start");
+const end = document.getElementById("end");
+const create = document.getElementById("create");
+const status = document.getElementById("status");
+const download = document.getElementById("download");
+
+let videoURL = null;
+
+upload.addEventListener("change", () => {
+  const file = upload.files[0];
+  if (!file) return;
+
+  if (videoURL) URL.revokeObjectURL(videoURL);
+  videoURL = URL.createObjectURL(file);
+  video.src = videoURL;
+
+  video.onloadedmetadata = () => {
+    start.value = 0;
+    end.value = Math.floor(video.duration);
+    status.textContent = "Video ready!";
+  };
+});
+
+create.addEventListener("click", async () => {
+  const from = Number(start.value);
+  const to = Number(end.value);
+
+  if (!video.src || !upload.files.length) {
+    status.textContent = "Please upload a video first.";
+    return;
+  }
+
+  if (!Number.isFinite(from) || !Number.isFinite(to) ||
+      from < 0 || to <= from || to > video.duration) {
+    status.textContent = "Please enter valid start and end times.";
+    return;
+  }
+
+  if (!video.captureStream || !window.MediaRecorder) {
+    status.textContent = "Your browser does not support video recording.";
+    return;
+  }
+
+  create.disabled = true;
+  download.style.display = "none";
+  status.textContent = "Creating your clip...";
+
+  try {
+    video.pause();
+    video.currentTime = from;
+
+    await new Promise((resolve, reject) => {
+      video.onseeked = resolve;
+      video.onerror = reject;
+    });
+
+    const stream = video.captureStream();
+    const mime = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm"
+    ].find(type => MediaRecorder.isTypeSupported(type));
+
+    if (!mime) throw new Error("Recording format unavailable");
+
+    const recorder = new MediaRecorder(stream, {mimeType: mime});
+    const chunks = [];
+
+    recorder.ondataavailable = e => {
+      if (e.data.size) chunks.push(e.data);
+    };
+
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, {type: mime});
+      const url = URL.createObjectURL(blob);
+
+      download.href = url;
+      download.download = "autoclip.webm";
+      download.textContent = "⬇️ Download Your Clip";
+      download.style.display = "block";
+
+      status.textContent = "Your clip is ready!";
+      create.disabled = false;
+    };
+
+    recorder.onerror = () => {
+      status.textContent = "Recording failed. Try another video.";
+      create.disabled = false;
+    };
+
+    video.onended = () => {
+      if (recorder.state === "recording") recorder.stop();
+    };
+
+    recorder.start(250);
+    await video.play();
+
+    const check = setInterval(() => {
+      if (video.currentTime >= to && recorder.state === "recording") {
+        clearInterval(check);
+        video.pause();
+        recorder.stop();
+      }
+    }, 100);
+
+  } catch (error) {
+    status.textContent = "Error: " + error.message;
+    create.disabled = false;
+  }
+});
+</script>
+
+</body>
+</html>
