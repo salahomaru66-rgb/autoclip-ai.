@@ -5,6 +5,103 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AutoClip AI</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101322;color:white;font-family:Arial,sans-serif;padding:20px}
+main{max-width:600px;margin:auto}
+h1{text-align:center;color:#70e1ff}
+p{color:#b9c2d9;text-align:center}
+.panel{background:#1b2135;padding:20px;border-radius:16px;margin-top:20px}
+input,select,button{width:100%;padding:14px;margin-top:12px;border-radius:9px;border:0;font-size:16px}
+button{background:#40c9e8;color:#101322;font-weight:bold}
+video{width:100%;margin-top:15px;border-radius:10px}
+.clip{background:#252e46;padding:12px;margin-top:12px;border-radius:10px}
+a{color:#70e1ff}
+small{color:#b9c2d9}
+</style>
+</head>
+<body>
+<main>
+<h1>AutoClip AI</h1>
+<p>Create short videos from your phone</p>
+
+<div class="panel">
+<h3>1. Upload your video</h3>
+<input type="file" id="videoFile" accept="video/*">
+<video id="preview" controls hidden></video>
+
+<h3>2. Choose clips</h3>
+<select id="clipCount">
+<option value="5">5 clips</option>
+<option value="10">10 clips</option>
+</select>
+
+<h3>3. Video format</h3>
+<select id="format">
+<option value="9:16">9:16 - YouTube Shorts / TikTok</option>
+<option value="16:9">16:9 - Landscape</option>
+</select>
+
+<button id="create">Create Clips</button>
+<div id="results"></div>
+</div>
+</main>
+
+<script>
+const fileInput=document.getElementById("videoFile");
+const preview=document.getElementById("preview");
+const results=document.getElementById("results");
+let videoURL=null;
+
+fileInput.addEventListener("change",()=>{
+ const file=fileInput.files[0];
+ if(!file)return;
+ if(videoURL)URL.revokeObjectURL(videoURL);
+ videoURL=URL.createObjectURL(file);
+ preview.src=videoURL;
+ preview.hidden=false;
+ results.innerHTML="";
+});
+
+document.getElementById("create").addEventListener("click",()=>{
+ const file=fileInput.files[0];
+ if(!file){alert("Please choose a video first.");return;}
+ const count=Number(document.getElementById("clipCount").value);
+ results.innerHTML="<p>Preparing clips...</p>";
+ const video=document.createElement("video");
+ video.preload="metadata";
+ video.src=videoURL;
+ video.onloadedmetadata=()=>{
+  const duration=video.duration;
+  const segment=duration/count;
+  results.innerHTML="<h3>Your clip sections</h3>";
+  for(let i=0;i<count;i++){
+   const start=i*segment;
+   const end=Math.min((i+1)*segment,duration);
+   const item=document.createElement("div");
+   item.className="clip";
+   item.innerHTML="<b>Clip "+(i+1)+"</b><br>"+
+   "Start: "+start.toFixed(1)+"s<br>"+
+   "End: "+end.toFixed(1)+"s<br>"+
+   "<small>Section ready for editing and export.</small>";
+   results.appendChild(item);
+  }
+  const note=document.createElement("p");
+  note.textContent="These are clip sections, not exported video files yet. AI highlight detection and automatic 9:16 rendering require a processing server.";
+  results.appendChild(note);
+ };
+ video.onerror=()=>{results.textContent="Could not read this video. Try another file.";};
+});
+</script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoClip AI</title>
 
 <style>
 * {
